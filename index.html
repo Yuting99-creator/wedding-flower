@@ -45,11 +45,12 @@
             border: 2px solid transparent; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .color-dot.active { border-color: #334155; transform: scale(1.15); }
-        .btn-group { margin-top: 20px; }
+        .btn-group { margin-top: 20px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
         button {
-            padding: 12px 24px; font-size: 1rem; border: none; border-radius: 20px;
-            margin: 0 10px; cursor: pointer; font-weight: bold;
+            padding: 12px 20px; font-size: 1rem; border: none; border-radius: 20px;
+            cursor: pointer; font-weight: bold; min-width: 90px;
         }
+        #undo-btn { background-color: #fed7aa; color: #ea580c; } /* 橘色系的上一步按鈕 */
         #clear-btn { background-color: #e2e8f0; color: #475569; }
         #save-btn { background-color: #f43f5e; color: white; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -83,18 +84,20 @@
     </div>
 
     <div class="btn-group">
-        <button id="clear-btn">重填</button>
+        <button id="undo-btn">上一步</button>
+        <button id="clear-btn">全部重填</button>
         <button id="save-btn">送出畫作</button>
     </div>
 
     <script>
-        // ⚠️ 記得把下面這行換成你在第一步複製的 Google Apps Script 網路應用程式網址喔！
+        // ⚠️ 記得把下面這行換成你的 Google Apps Script 網路應用程式網址喔！
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6SGnZMpHw4_MYVmBAsyhFxxv9FoJz51xtaHPmMuj7TzDcdpkG8fJVGsULHk1T0krVMA/exec";
 
         const canvas = document.getElementById('paintCanvas');
         const ctx = canvas.getContext('2d');
-        const saveBtn = document.getElementById('save-btn');
+        const undoBtn = document.getElementById('undo-btn');
         const clearBtn = document.getElementById('clear-btn');
+        const saveBtn = document.getElementById('save-btn');
         const nameInput = document.getElementById('guest-name');
 
         ctx.lineWidth = 6; 
@@ -106,7 +109,19 @@
         let isDrawing = false;
         let lastX = 0; let lastY = 0;
 
-        // 點擊顏色邏輯 (增加對手機點擊的支援)
+        // 用來記錄歷史紀錄的陣列 (Undo 核心)
+        let drawingHistory = [];
+        
+        // 記錄目前的畫面狀態
+        function saveState() {
+            // 只保留最近的 20 步，避免手機記憶體吃滿
+            if (drawingHistory.length >= 20) {
+                drawingHistory.shift();
+            }
+            drawingHistory.push(canvas.toDataURL());
+        }
+
+        // 點擊顏色邏輯
         document.querySelectorAll('.color-dot').forEach(dot => {
             const changeColor = (e) => {
                 e.preventDefault();
@@ -119,7 +134,7 @@
             dot.addEventListener('touchstart', changeColor);
         });
 
-        // 完美精準的手機與滑鼠定位坐標
+        // 坐標定位
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             let clientX, clientY;
@@ -134,6 +149,7 @@
         }
 
         function startDrawing(e) {
+            saveState(); // 在下筆畫新線條之前，先存下當前的狀態
             isDrawing = true;
             const pos = getPos(e); 
             lastX = pos.x; 
@@ -159,12 +175,32 @@
         canvas.addEventListener('mousemove', draw);
         window.addEventListener('mouseup', stopDrawing);
 
-        // 手機觸控事件 (加入被動阻擋優化)
+        // 手機觸控事件
         canvas.addEventListener('touchstart', startDrawing, { passive: false });
         canvas.addEventListener('touchmove', draw, { passive: false });
         canvas.addEventListener('touchend', stopDrawing);
 
-        clearBtn.addEventListener('click', () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+        // 上一步 (Undo) 功能
+        undoBtn.addEventListener('click', () => {
+            if (drawingHistory.length > 0) {
+                let previousState = drawingHistory.pop(); // 拿取最後一次存檔
+                let img = new Image();
+                img.src = previousState;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空
+                    ctx.drawImage(img, 0, 0); // 畫回前一個狀態
+                };
+            } else {
+                // 如果沒有歷史紀錄了，點擊上一步等於清空畫布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+
+        // 全部清空
+        clearBtn.addEventListener('click', () => {
+            saveState(); // 清空前也存一步，讓不小心按到全部重填的人還可以搶救
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
 
         saveBtn.addEventListener('click', () => {
             const name = nameInput.value.trim();
@@ -183,6 +219,7 @@
                 if(data.status === "success") {
                     alert('小花傳送成功！謝謝你的祝福 🌸');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawingHistory = []; // 清空歷史紀錄
                     nameInput.value = "";
                 } else { alert('糟了，出了一點問題，請重試一次！'); }
             })
