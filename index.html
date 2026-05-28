@@ -11,44 +11,43 @@
             background-color: #f7f9fa;
             margin: 0;
             padding: 20px;
+            -webkit-user-select: none;
+            user-select: none;
         }
         h2 { color: #5a6b6c; font-size: 1.2rem; margin-bottom: 15px; }
         .input-group { margin-bottom: 15px; }
         input[type="text"] {
-            padding: 8px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; width: 60%; max-width: 200px;
+            padding: 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 5px; width: 70%; max-width: 200px;
         }
-        /* 畫布外框與背景 */
         #canvas-container {
             position: relative;
             display: inline-block;
-            background-color: #ffffff; /* 賓客看的是白底 */
+            background-color: #ffffff;
             border: 2px dashed #cbd5e1;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            /* 這裡放入淺色的虛線花朵背景 (SVG 格式)，儲存時 canvas 不會帶有這個背景 */
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 100 100'><circle cx='50' cy='35' r='12' fill='none' stroke='%23e2e8f0' stroke-width='1' stroke-dasharray='2,2'/><circle cx='35' cy='50' r='12' fill='none' stroke='%23e2e8f0' stroke-width='1' stroke-dasharray='2,2'/><circle cx='65' cy='50' r='12' fill='none' stroke='%23e2e8f0' stroke-width='1' stroke-dasharray='2,2'/><circle cx='50' cy='65' r='12' fill='none' stroke='%23e2e8f0' stroke-width='1' stroke-dasharray='2,2'/><circle cx='50' cy='50' r='10' fill='none' stroke='%23e2e8f0' stroke-width='1' stroke-dasharray='2,2'/></svg>");
             background-position: center;
             background-repeat: no-repeat;
             background-size: 80%;
         }
         canvas { display: block; touch-action: none; cursor: crosshair; }
-        /* 12色調色盤 */
         #palette {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
+            gap: 12px;
             max-width: 300px;
-            margin: 15px auto;
+            margin: 20px auto;
+            justify-items: center;
         }
         .color-dot {
-            width: 35px; height: 35px; border-radius: 50%;
-            border: 2px solid transparent; cursor: pointer; transition: transform 0.1s;
+            width: 40px; height: 40px; border-radius: 50%;
+            border: 2px solid transparent; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .color-dot.active { border-color: #334155; transform: scale(1.1); }
-        /* 按鈕群組 */
-        .btn-group { margin-top: 15px; }
+        .color-dot.active { border-color: #334155; transform: scale(1.15); }
+        .btn-group { margin-top: 20px; }
         button {
-            padding: 10px 20px; font-size: 1rem; border: none; border-radius: 20px;
+            padding: 12px 24px; font-size: 1rem; border: none; border-radius: 20px;
             margin: 0 10px; cursor: pointer; font-weight: bold;
         }
         #clear-btn { background-color: #e2e8f0; color: #475569; }
@@ -58,7 +57,7 @@
 </head>
 <body>
 
-    <h2>🌸 請留下您的名字，並為我們畫一朵祝福小花 🌸</h2>
+    <h2>🌸 請留下您的名字，並為我們畫一朵小花 🌸</h2>
     
     <div class="input-group">
         <input type="text" id="guest-name" placeholder="請輸入您的名字" required>
@@ -89,9 +88,8 @@
     </div>
 
     <script>
-        // 替換成你在第一步複製的 Google Apps Script 網路應用程式網址
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6SGnZMpHw4_MYVmBAsyhFxxv9FoJz51xtaHPmMuj7TzDcdpkG8fJVGsULHk1T0krVMA/exec
-";
+        // ⚠️ 記得把下面這行換成你在第一步複製的 Google Apps Script 網路應用程式網址喔！
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6SGnZMpHw4_MYVmBAsyhFxxv9FoJz51xtaHPmMuj7TzDcdpkG8fJVGsULHk1T0krVMA/exec";
 
         const canvas = document.getElementById('paintCanvas');
         const ctx = canvas.getContext('2d');
@@ -99,8 +97,7 @@
         const clearBtn = document.getElementById('clear-btn');
         const nameInput = document.getElementById('guest-name');
 
-        // 固定筆刷設定
-        ctx.lineWidth = 5; // 你可以在這裡微調固定粗細 (5-8 左右最適合手機手繪)
+        ctx.lineWidth = 6; 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         let currentInl = '#ff6b6b'; 
@@ -109,53 +106,71 @@
         let isDrawing = false;
         let lastX = 0; let lastY = 0;
 
-        // 畫筆色彩切換邏輯
+        // 點擊顏色邏輯 (增加對手機點擊的支援)
         document.querySelectorAll('.color-dot').forEach(dot => {
-            dot.addEventListener('click', (e) => {
+            const changeColor = (e) => {
+                e.preventDefault();
                 document.querySelector('.color-dot.active').classList.remove('active');
-                e.target.classList.add('active');
-                currentInl = e.target.getAttribute('data-color');
+                dot.classList.add('active');
+                currentInl = dot.getAttribute('data-color');
                 ctx.strokeStyle = currentInl;
-            });
+            };
+            dot.addEventListener('click', changeColor);
+            dot.addEventListener('touchstart', changeColor);
         });
 
-        // 繪圖核心邏輯 (支援手機觸控與滑鼠)
+        // 完美精準的手機與滑鼠定位坐標
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
             return { x: clientX - rect.left, y: clientY - rect.top };
         }
+
         function startDrawing(e) {
             isDrawing = true;
-            const pos = getPos(e); lastX = pos.x; lastY = pos.y;
-            draw(e);
+            const pos = getPos(e); 
+            lastX = pos.x; 
+            lastY = pos.y;
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
         }
+
         function draw(e) {
             if (!isDrawing) return;
-            e.preventDefault();
+            if (e.cancelable) e.preventDefault();
             const pos = getPos(e);
-            ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
-            lastX = pos.x; lastY = pos.y;
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            lastX = pos.x; 
+            lastY = pos.y;
         }
-        function stopDrawing() { isDrawing = false; }
 
-        canvas.addEventListener('mousedown', startDrawing); canvas.addEventListener('mousemove', draw);
+        function stopDrawing() { isDrawing = false; ctx.beginPath(); }
+
+        // 滑鼠事件
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
         window.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('touchstart', startDrawing); canvas.addEventListener('touchmove', draw);
-        window.addEventListener('touchend', stopDrawing);
 
-        // 清空畫布
+        // 手機觸控事件 (加入被動阻擋優化)
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+
         clearBtn.addEventListener('click', () => ctx.clearRect(0, 0, canvas.width, canvas.height));
 
-        // 上傳到雲端硬碟 (轉成透明底 PNG)
         saveBtn.addEventListener('click', () => {
             const name = nameInput.value.trim();
             if (!name) { alert('請輸入您的名字，讓我們知道這是誰畫的喔！'); return; }
 
             saveBtn.disabled = true; saveBtn.innerText = "上傳中...";
-
-            // 直接導出 canvas，預設就是透明底 PNG
             const dataURL = canvas.toDataURL('image/png');
 
             fetch(GAS_WEB_APP_URL, {
