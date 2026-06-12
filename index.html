@@ -32,9 +32,11 @@
             background-size: 80%; /* 如果覺得五瓣花太大或太小，可以自己調整這個 % 數 */
         }
         canvas {
-            background-color: transparent !important;
+            display: block; 
+            touch-action: none; 
+            cursor: crosshair; 
+            background-color: transparent !important; /* 強制透明以顯現底圖 */
         }
-        canvas { display: block; touch-action: none; cursor: crosshair; }
         #palette {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
@@ -106,7 +108,7 @@
         ctx.lineWidth = 6; 
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        let currentInl = '#ff6b6b'; 
+        let currentInl = '#b3374c'; 
         ctx.strokeStyle = currentInl;
 
         let isDrawing = false;
